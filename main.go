@@ -87,13 +87,13 @@ type Containers interface {
 	GetImageData(id string) *ImageData
 }
 
-func DockerInstalled() string {
-	result := "Nothing installed"
+func IsDockerInstalled() bool {
+
 	if d.IsInstalled() {
-		result = "Docker is installed"
+		return true
 	}
 	//will include rest of the containers logic ToDo
-	return result
+	return false
 }
 
 var d Docker
