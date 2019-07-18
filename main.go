@@ -1,14 +1,10 @@
-package main
+package FStackContainers
 
 import (
 	"fmt"
 	"log"
 	"os/exec"
 	"time"
-
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
-	"golang.org/x/net/context"
 )
 
 type NetworkType int
@@ -102,18 +98,18 @@ func DockerInstalled() string {
 
 var d Docker
 
-func main() {
+// func main() {
 
-	cli, err := client.NewClientWithOpts(client.WithVersion("1.39"))
-	if err != nil {
-		fmt.Println(err)
-	}
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
-	if err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("Size of the container is :", len(containers))
-	for _, container := range containers {
-		fmt.Println(container)
-	}
-}
+// 	cli, err := client.NewClientWithOpts(client.WithVersion("1.39"))
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
+// 	if err != nil {
+// 		fmt.Println(err)
+// 	}
+// 	fmt.Println("Size of the container is :", len(containers))
+// 	for _, container := range containers {
+// 		fmt.Println(container)
+// 	}
+// }
