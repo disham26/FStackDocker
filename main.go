@@ -91,10 +91,19 @@ type Containers interface {
 	GetImageData(id string) *ImageData
 }
 
+func DockerInstalled() string {
+	result := "Nothing installed"
+	if d.IsInstalled() {
+		result = "Docker is installed"
+	}
+	//will include rest of the containers logic ToDo
+	return result
+}
+
+var d Docker
+
 func main() {
 
-	var d Docker
-	fmt.Println(d.IsInstalled())
 	cli, err := client.NewClientWithOpts(client.WithVersion("1.39"))
 	if err != nil {
 		fmt.Println(err)
