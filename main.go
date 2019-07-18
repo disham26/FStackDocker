@@ -55,19 +55,6 @@ func (d Docker) IsInstalled() bool {
 	return true
 }
 
-//Returns the containerID in which the ProcessID is running
-func (d Docker) GetContainerForProcess(pid int) string {
-	CheckInit()
-	containers := GetAllDockerContainers()
-	for _, container := range containers {
-		result, err := cli.ContainerInspect(context.Background(), container.ID)
-		if err == nil {
-			fmt.Println(result)
-			fmt.Println("--------------------")
-		}
-	}
-	return ""
-}
 func (d Docker) GetContainerForListenPort(port int) string {
 	CheckInit()
 	return ""
@@ -119,7 +106,6 @@ func GetContainerForProcess(pid int) string {
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(result.State.Pid)
 		if result.State.Pid == pid {
 			return container.ID
 		}
@@ -134,7 +120,7 @@ type Containers interface {
 	IsInstalled() bool
 
 	// Get container associated with various objects
-	GetContainerForProcess(pid int) (containerId string)
+	//GetContainerForProcess(pid int) (containerId string)
 
 	GetContainerForListenPort(port int) (containerId string)
 
