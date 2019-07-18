@@ -36,10 +36,6 @@ func GetAllDockerContainers() []types.Container {
 	if err != nil {
 		fmt.Println(err)
 	}
-	//for _, container := range containers {
-	//fmt.Println(container)
-	//}
-
 	return containers
 }
 
@@ -57,6 +53,17 @@ func (d Docker) IsInstalled() bool {
 
 func (d Docker) GetContainerForListenPort(port int) string {
 	CheckInit()
+	containers := GetAllDockerContainers()
+	for _, container := range containers {
+		result, err := cli.ContainerInspect(context.Background(), container.ID)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if result.State.Pid == port {
+			return container.ID
+		}
+	}
 	return ""
 }
 func (d Docker) GetContainerForInterface(virtualEthDevice string) string {
@@ -100,17 +107,18 @@ type ImageData struct {
 
 //Enter a container process ID and the function will return the container ID
 func GetContainerForProcess(pid int) string {
+	CheckInit()
 	containers := GetAllDockerContainers()
 	for _, container := range containers {
 		result, err := cli.ContainerInspect(context.Background(), container.ID)
 		if err != nil {
 			fmt.Println(err)
 		}
+
 		if result.State.Pid == pid {
 			return container.ID
 		}
 	}
-
 	return ""
 }
 
@@ -127,7 +135,7 @@ type Containers interface {
 	GetContainerForInterface(virtualEthDevice string) (containerId string)
 
 	//Get data about a container.
-	GetContainerData(containerId string)
+	//GetContainerData(containerId string)
 
 	//Get Sha-256 of an internal path in container.
 	GetHashForPath(path string) (hash []byte)
