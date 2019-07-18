@@ -130,7 +130,7 @@ type Containers interface {
 	// Get container associated with various objects
 	//GetContainerForProcess(pid int) (containerId string)
 
-	GetContainerForListenPort(port int) (containerId string)
+	//GetContainerForListenPort(port int) (containerId string)
 
 	//GetContainerForInterface(virtualEthDevice string) (containerId string)
 
