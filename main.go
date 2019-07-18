@@ -110,6 +110,23 @@ type ImageData struct {
 	Size      int64
 	BuildTime time.Time
 }
+
+//Enter a container process ID and the function will return the container ID
+func GetContainerForProcess(pid int) string {
+	containers := GetAllDockerContainers()
+	for _, container := range containers {
+		result, err := cli.ContainerInspect(context.Background(), container.ID)
+		if err != nil {
+			fmt.Println(err)
+		}
+		if result.State.Pid == pid {
+			return container.ID
+		}
+	}
+
+	return ""
+}
+
 type Containers interface {
 
 	// Is docker installed on host?
