@@ -132,7 +132,7 @@ type Containers interface {
 
 	GetContainerForListenPort(port int) (containerId string)
 
-	GetContainerForInterface(virtualEthDevice string) (containerId string)
+	//GetContainerForInterface(virtualEthDevice string) (containerId string)
 
 	//Get data about a container.
 	//GetContainerData(containerId string)
