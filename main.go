@@ -36,10 +36,9 @@ func GetAllDockerContainers() []types.Container {
 	if err != nil {
 		fmt.Println(err)
 	}
-	fmt.Println("Size of the container is :", len(containers))
-	for _, container := range containers {
-		fmt.Println(container)
-	}
+	//for _, container := range containers {
+	//fmt.Println(container)
+	//}
 
 	return containers
 }
@@ -67,7 +66,6 @@ func (d Docker) GetContainerForProcess(pid int) string {
 			fmt.Println("--------------------")
 		}
 	}
-	fmt.Println("to do")
 	return ""
 }
 func (d Docker) GetContainerForListenPort(port int) string {
