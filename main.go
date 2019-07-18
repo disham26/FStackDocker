@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"os/exec"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/strslice"
 	"github.com/docker/docker/client"
 )
 
@@ -21,22 +23,36 @@ type Docker struct {
 	ListenPortMap    map[int]int
 	Proxy            int // Pid of docker-proxy
 	Privileged       bool
-	Network          NetworkType
+	Network          NetworkType //ask
 	Process          ProcessSpaceType
 	VolumeMap        map[string]string
 	VirtualEthDevice string
 	CreatedTime      time.Time
-	Cmdline          string
+	Cmdline          strslice.StrSlice
 }
 
 //Get the list of all the docker containers
-func GetAllDockerContainers() []types.Container {
+func GetAllDockerContainers() []Docker {
 	CheckInit()
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
 	if err != nil {
 		fmt.Println(err)
 	}
-	return containers
+	var dockers []Docker
+	for _, container := range containers {
+		containerInspectResult, _ := cli.ContainerInspect(context.Background(), container.ID)
+		i, _ := strconv.ParseInt(containerInspectResult.Created, 10, 64)
+		docker := Docker{
+			Name:        containerInspectResult.Name,
+			ContainerId: container.ID,
+			ImageId:     container.ImageID,
+			Privileged:  containerInspectResult.HostConfig.Privileged,
+			CreatedTime: time.Unix(i, 0),
+			Cmdline:     containerInspectResult.Config.Cmd,
+		}
+		dockers = append(dockers, docker)
+	}
+	return dockers
 }
 
 //Check is docker is installed on this machine
@@ -55,13 +71,13 @@ func (d Docker) GetContainerForListenPort(port int) string {
 	CheckInit()
 	containers := GetAllDockerContainers()
 	for _, container := range containers {
-		result, err := cli.ContainerInspect(context.Background(), container.ID)
+		result, err := cli.ContainerInspect(context.Background(), container.ContainerId)
 		if err != nil {
 			fmt.Println(err)
 		}
 
 		if result.State.Pid == port {
-			return container.ID
+			return container.ContainerId
 		}
 	}
 	return ""
@@ -70,8 +86,18 @@ func (d Docker) GetContainerForInterface(virtualEthDevice string) string {
 	CheckInit()
 	return ""
 }
-func (d Docker) GetContainerData(containerId string) {
+func (d Docker) GetContainerData(containerId string) Docker {
 	CheckInit()
+	dockerJSON, _ := cli.ContainerInspect(context.Background(), containerId)
+	i, _ := strconv.ParseInt(dockerJSON.Created, 10, 64)
+	docker := Docker{
+		Name:        dockerJSON.Name,
+		ContainerId: dockerJSON.ID,
+		ImageId:     dockerJSON.Image,
+		Privileged:  dockerJSON.HostConfig.Privileged,
+		CreatedTime: time.Unix(i, 0),
+	}
+	return docker
 
 }
 func (d Docker) GetHashForPath(path string) []byte {
@@ -97,6 +123,23 @@ func (d Docker) GetImageData(id string) *ImageData {
 	return &imageData
 }
 
+//Enter a container process ID and the function will return the container ID
+func (d Docker) GetContainerForProcess(pid int) string {
+	CheckInit()
+	containers := GetAllDockerContainers()
+	for _, container := range containers {
+		result, err := cli.ContainerInspect(context.Background(), container.ContainerId)
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		if result.State.Pid == pid {
+			return container.ContainerId
+		}
+	}
+	return ""
+}
+
 type ImageData struct {
 	Id        string
 	Name      string
@@ -105,37 +148,20 @@ type ImageData struct {
 	BuildTime time.Time
 }
 
-//Enter a container process ID and the function will return the container ID
-func GetContainerForProcess(pid int) string {
-	CheckInit()
-	containers := GetAllDockerContainers()
-	for _, container := range containers {
-		result, err := cli.ContainerInspect(context.Background(), container.ID)
-		if err != nil {
-			fmt.Println(err)
-		}
-
-		if result.State.Pid == pid {
-			return container.ID
-		}
-	}
-	return ""
-}
-
 type Containers interface {
 
 	// Is docker installed on host?
 	IsInstalled() bool
 
 	// Get container associated with various objects
-	//GetContainerForProcess(pid int) (containerId string)
+	GetContainerForProcess(pid int) (containerId string)
 
-	//GetContainerForListenPort(port int) (containerId string)
+	GetContainerForListenPort(port int) (containerId string)
 
-	//GetContainerForInterface(virtualEthDevice string) (containerId string)
+	GetContainerForInterface(virtualEthDevice string) (containerId string)
 
 	//Get data about a container.
-	//GetContainerData(containerId string)
+	GetContainerData(containerId string)
 
 	//Get Sha-256 of an internal path in container.
 	GetHashForPath(path string) (hash []byte)
