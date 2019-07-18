@@ -1,10 +1,14 @@
 package FStackContainers
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os/exec"
 	"time"
+
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 )
 
 type NetworkType int
@@ -25,7 +29,24 @@ type Docker struct {
 	Cmdline          string
 }
 
+//Get the list of all the docker containers
+func GetAllDockerContainers() []types.Container {
+	CheckInit()
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Println("Size of the container is :", len(containers))
+	for _, container := range containers {
+		fmt.Println(container)
+	}
+
+	return containers
+}
+
+//Check is docker is installed on this machine
 func (d Docker) IsInstalled() bool {
+	CheckInit()
 	cmd := exec.Command("docker", "version")
 	_, err := cmd.CombinedOutput()
 	if err != nil {
@@ -34,33 +55,60 @@ func (d Docker) IsInstalled() bool {
 	}
 	return true
 }
-func (d Docker) GetContainerForProcess(pid int) {
+
+//Returns the containerID in which the ProcessID is running
+func (d Docker) GetContainerForProcess(pid int) string {
+	CheckInit()
+	containers := GetAllDockerContainers()
+	for _, container := range containers {
+		result, err := cli.ContainerInspect(context.Background(), container.ID)
+		if err == nil {
+			fmt.Println(result)
+			fmt.Println("--------------------")
+		}
+	}
 	fmt.Println("to do")
+	return ""
 }
 func (d Docker) GetContainerForListenPort(port int) string {
+	CheckInit()
 	return ""
 }
 func (d Docker) GetContainerForInterface(virtualEthDevice string) string {
+	CheckInit()
 	return ""
 }
 func (d Docker) GetContainerData(containerId string) {
+	CheckInit()
 
 }
 func (d Docker) GetHashForPath(path string) []byte {
+	CheckInit()
 	return nil
 }
 func (d Docker) GetUsernameForUid(uid int) string {
+	CheckInit()
 	return ""
 }
 func (d Docker) GetImageData(id string) *ImageData {
-	return nil
+	CheckInit()
+	out, _, err := cli.ImageInspectWithRaw(context.Background(), id)
+	if err != nil {
+		panic(err)
+	}
+	var imageData ImageData
+	imageData.Id = out.ID
+	imageData.Name = out.GraphDriver.Name
+	imageData.Tag = out.RepoTags
+	imageData.Size = out.Size
+	imageData.BuildTime = out.Metadata.LastTagTime
+	return &imageData
 }
 
 type ImageData struct {
 	Id        string
 	Name      string
-	Tag       string
-	Mtime     time.Time
+	Tag       []string
 	Size      int64
 	BuildTime time.Time
 }
@@ -71,7 +119,9 @@ type Containers interface {
 
 	// Get container associated with various objects
 	GetContainerForProcess(pid int) (containerId string)
+
 	GetContainerForListenPort(port int) (containerId string)
+
 	GetContainerForInterface(virtualEthDevice string) (containerId string)
 
 	//Get data about a container.
@@ -88,7 +138,7 @@ type Containers interface {
 }
 
 func IsDockerInstalled() bool {
-
+	CheckInit()
 	if d.IsInstalled() {
 		return true
 	}
@@ -97,19 +147,21 @@ func IsDockerInstalled() bool {
 }
 
 var d Docker
+var cli *client.Client
+var initiated = false
 
-// func main() {
+func CheckInit() {
+	if !initiated {
+		InitPlugin()
+	}
+}
+func InitPlugin() {
+	var err error
+	cli, err = client.NewClientWithOpts(client.WithVersion("1.39"))
 
-// 	cli, err := client.NewClientWithOpts(client.WithVersion("1.39"))
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	fmt.Println("Size of the container is :", len(containers))
-// 	for _, container := range containers {
-// 		fmt.Println(container)
-// 	}
-// }
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	initiated = true
+}
