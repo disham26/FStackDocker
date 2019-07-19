@@ -69,7 +69,7 @@ func TestGetContainerFromPort(t *testing.T) {
 }
 
 func TestGetContainerFromPortNegative(t *testing.T) {
-	containerId := d.GetContainerForProcess(2783)
+	containerId := d.GetContainerForProcess(3108)
 	if containerId == "9c0d34b30cc61587fd310e9bfe8cf341b1bc74111ec6f60ea5e99eda3a543803" {
 		t.Error("Expected 9c0d34b30cc61587fd310e9bfe8cf341b1bc74111ec6f60ea5e99eda3a543803, got ", containerId, ". Negative test passed")
 	}

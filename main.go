@@ -16,7 +16,38 @@ import (
 type NetworkType int
 type ProcessSpaceType int
 
+const DOCKER_TYPE = "Docker"
+
+var d Docker
+var cli *client.Client
+var initiated = false
+
+type Containers interface {
+
+	// Is docker installed on host?
+	IsInstalled() bool
+
+	// Get container associated with various objects
+	GetContainerForProcess(pid int) (containerId string)
+
+	GetContainerForListenPort(port int) (containerId string)
+
+	GetContainerForInterface(virtualEthDevice string) (containerId string)
+
+	//Get data about a container.
+	GetContainerData(containerId string) Containers
+
+	//Get Sha-256 of an internal path in container.
+	GetHashForPath(path string) (hash []byte)
+
+	//Get username for internal UID
+	GetUsernameForUid(uid int) string
+
+	// Get information about the image
+	GetImageData(id string) *ImageData
+}
 type Docker struct {
+	ContainerType    string
 	Name             string
 	ContainerId      string
 	ImageId          string
@@ -31,28 +62,12 @@ type Docker struct {
 	Cmdline          strslice.StrSlice
 }
 
-//Get the list of all the docker containers
-func GetAllDockerContainers() []Docker {
-	CheckInit()
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
-	if err != nil {
-		fmt.Println(err)
-	}
-	var dockers []Docker
-	for _, container := range containers {
-		containerInspectResult, _ := cli.ContainerInspect(context.Background(), container.ID)
-		i, _ := strconv.ParseInt(containerInspectResult.Created, 10, 64)
-		docker := Docker{
-			Name:        containerInspectResult.Name,
-			ContainerId: container.ID,
-			ImageId:     container.ImageID,
-			Privileged:  containerInspectResult.HostConfig.Privileged,
-			CreatedTime: time.Unix(i, 0),
-			Cmdline:     containerInspectResult.Config.Cmd,
-		}
-		dockers = append(dockers, docker)
-	}
-	return dockers
+type ImageData struct {
+	Id        string
+	Name      string
+	Tag       []string
+	Size      int64
+	BuildTime time.Time
 }
 
 //Check is docker is installed on this machine
@@ -91,11 +106,12 @@ func (d Docker) GetContainerData(containerId string) Docker {
 	dockerJSON, _ := cli.ContainerInspect(context.Background(), containerId)
 	i, _ := strconv.ParseInt(dockerJSON.Created, 10, 64)
 	docker := Docker{
-		Name:        dockerJSON.Name,
-		ContainerId: dockerJSON.ID,
-		ImageId:     dockerJSON.Image,
-		Privileged:  dockerJSON.HostConfig.Privileged,
-		CreatedTime: time.Unix(i, 0),
+		ContainerType: DOCKER_TYPE,
+		Name:          dockerJSON.Name,
+		ContainerId:   dockerJSON.ID,
+		ImageId:       dockerJSON.Image,
+		Privileged:    dockerJSON.HostConfig.Privileged,
+		CreatedTime:   time.Unix(i, 0),
 	}
 	return docker
 
@@ -140,37 +156,29 @@ func (d Docker) GetContainerForProcess(pid int) string {
 	return ""
 }
 
-type ImageData struct {
-	Id        string
-	Name      string
-	Tag       []string
-	Size      int64
-	BuildTime time.Time
-}
-
-type Containers interface {
-
-	// Is docker installed on host?
-	IsInstalled() bool
-
-	// Get container associated with various objects
-	GetContainerForProcess(pid int) (containerId string)
-
-	GetContainerForListenPort(port int) (containerId string)
-
-	GetContainerForInterface(virtualEthDevice string) (containerId string)
-
-	//Get data about a container.
-	GetContainerData(containerId string)
-
-	//Get Sha-256 of an internal path in container.
-	GetHashForPath(path string) (hash []byte)
-
-	//Get username for internal UID
-	GetUsernameForUid(uid int) string
-
-	// Get information about the image
-	GetImageData(id string) *ImageData
+//Get the list of all the docker containers
+func GetAllDockerContainers() []Docker {
+	CheckInit()
+	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
+	if err != nil {
+		fmt.Println(err)
+	}
+	var dockers []Docker
+	for _, container := range containers {
+		containerInspectResult, _ := cli.ContainerInspect(context.Background(), container.ID)
+		i, _ := strconv.ParseInt(containerInspectResult.Created, 10, 64)
+		docker := Docker{
+			ContainerType: DOCKER_TYPE,
+			Name:          containerInspectResult.Name,
+			ContainerId:   container.ID,
+			ImageId:       container.ImageID,
+			Privileged:    containerInspectResult.HostConfig.Privileged,
+			CreatedTime:   time.Unix(i, 0),
+			Cmdline:       containerInspectResult.Config.Cmd,
+		}
+		dockers = append(dockers, docker)
+	}
+	return dockers
 }
 
 func IsDockerInstalled() bool {
@@ -181,10 +189,6 @@ func IsDockerInstalled() bool {
 	//will include rest of the containers logic ToDo
 	return false
 }
-
-var d Docker
-var cli *client.Client
-var initiated = false
 
 func CheckInit() {
 	if !initiated {
