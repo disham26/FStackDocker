@@ -16,10 +16,24 @@ import (
 type NetworkType int
 type ProcessSpaceType int
 
+//Constant for docker type
 const DOCKER_TYPE = "Docker"
 
+//Constants for network types
+const NETWORK_TYPE_BRIDGE = 1
+const NETWORK_TYPE_HOST = 2
+const NETWORK_TYPE_CONTAINER = 3
+const NETWORK_TYPE_NONE = 4
+const NETWORK_TYPE_DEFAULT = 5
+const NETWORK_TYPE_OTHER = 6
+
+//Instance of Docker
 var d Docker
+
+//Instance of client
 var cli *client.Client
+
+//Flag to check if instance is initiated
 var initiated = false
 
 type Containers interface {
@@ -46,12 +60,14 @@ type Containers interface {
 	// Get information about the image
 	GetImageData(id string) *ImageData
 }
+
+//Docker struct
 type Docker struct {
 	ContainerType    string
 	Name             string
 	ContainerId      string
 	ImageId          string
-	ListenPortMap    map[int]int
+	ListenPortMap    map[uint16]uint16
 	Proxy            int // Pid of docker-proxy
 	Privileged       bool
 	Network          NetworkType //ask
@@ -60,8 +76,10 @@ type Docker struct {
 	VirtualEthDevice string
 	CreatedTime      time.Time
 	Cmdline          strslice.StrSlice
+	NetworkId        string
 }
 
+//ImageData struct
 type ImageData struct {
 	Id        string
 	Name      string
@@ -82,6 +100,7 @@ func (d Docker) IsInstalled() bool {
 	return true
 }
 
+//Returns the container ID for the given port
 func (d Docker) GetContainerForListenPort(port int) string {
 	CheckInit()
 	containers := GetAllDockerContainers()
@@ -90,40 +109,47 @@ func (d Docker) GetContainerForListenPort(port int) string {
 		if err != nil {
 			fmt.Println(err)
 		}
-
 		if result.State.Pid == port {
 			return container.ContainerId
 		}
 	}
 	return ""
 }
+
+//ToDo
 func (d Docker) GetContainerForInterface(virtualEthDevice string) string {
 	CheckInit()
 	return ""
 }
+
+//Returns docker for a given container ID
 func (d Docker) GetContainerData(containerId string) Docker {
 	CheckInit()
-	dockerJSON, _ := cli.ContainerInspect(context.Background(), containerId)
-	i, _ := strconv.ParseInt(dockerJSON.Created, 10, 64)
-	docker := Docker{
-		ContainerType: DOCKER_TYPE,
-		Name:          dockerJSON.Name,
-		ContainerId:   dockerJSON.ID,
-		ImageId:       dockerJSON.Image,
-		Privileged:    dockerJSON.HostConfig.Privileged,
-		CreatedTime:   time.Unix(i, 0),
+	containersList := GetAllDockerContainers()
+	var docker Docker
+	for _, container := range containersList {
+		if container.ContainerId == containerId {
+			docker = container
+			return docker
+		}
 	}
 	return docker
 
 }
+
+//ToDo
 func (d Docker) GetHashForPath(path string) []byte {
 	CheckInit()
 	return nil
 }
+
+//ToDO
 func (d Docker) GetUsernameForUid(uid int) string {
 	CheckInit()
 	return ""
 }
+
+//Returns Image details for a given image ID
 func (d Docker) GetImageData(id string) *ImageData {
 	CheckInit()
 	out, _, err := cli.ImageInspectWithRaw(context.Background(), id)
@@ -148,7 +174,6 @@ func (d Docker) GetContainerForProcess(pid int) string {
 		if err != nil {
 			fmt.Println(err)
 		}
-
 		if result.State.Pid == pid {
 			return container.ContainerId
 		}
@@ -158,50 +183,90 @@ func (d Docker) GetContainerForProcess(pid int) string {
 
 //Get the list of all the docker containers
 func GetAllDockerContainers() []Docker {
+	fmt.Println("Inside GetAllDOckerCOntainers")
 	CheckInit()
 	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{All: true})
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("WOW the error is :", err)
+	}
+	for _, container := range containers {
+		fmt.Println(container)
 	}
 	var dockers []Docker
 	for _, container := range containers {
 		containerInspectResult, _ := cli.ContainerInspect(context.Background(), container.ID)
+		NetworkMode := containerInspectResult.HostConfig.NetworkMode.NetworkName()
+		var networkType NetworkType
+		switch NetworkMode {
+		case "bridge":
+			networkType = NETWORK_TYPE_BRIDGE
+		case "host":
+			networkType = NETWORK_TYPE_HOST
+		case "container":
+			networkType = NETWORK_TYPE_CONTAINER
+		case "none":
+			networkType = NETWORK_TYPE_NONE
+		case "default":
+			networkType = NETWORK_TYPE_DEFAULT
+		default:
+			networkType = NETWORK_TYPE_DEFAULT
+		}
 		i, _ := strconv.ParseInt(containerInspectResult.Created, 10, 64)
+		networkId := container.NetworkSettings.Networks["bridge"].NetworkID
+		ports := container.Ports
+		var listenPorts map[uint16]uint16
+		for _, port := range ports {
+			listenPorts[port.PublicPort] = port.PrivatePort
+		}
 		docker := Docker{
 			ContainerType: DOCKER_TYPE,
 			Name:          containerInspectResult.Name,
 			ContainerId:   container.ID,
 			ImageId:       container.ImageID,
-			Privileged:    containerInspectResult.HostConfig.Privileged,
-			CreatedTime:   time.Unix(i, 0),
-			Cmdline:       containerInspectResult.Config.Cmd,
+			ListenPortMap: listenPorts,
+			//Proxy:      "",
+			Privileged: containerInspectResult.HostConfig.Privileged,
+			Network:    networkType,
+			//Process: ,
+			//VolumeMap:        "",
+			VirtualEthDevice: "",
+			CreatedTime:      time.Unix(i, 0),
+			Cmdline:          containerInspectResult.Config.Cmd,
+			NetworkId:        networkId,
 		}
 		dockers = append(dockers, docker)
 	}
 	return dockers
 }
 
+//Returns boolean for docker installed in machine
 func IsDockerInstalled() bool {
-	CheckInit()
-	if d.IsInstalled() {
-		return true
-	}
-	//will include rest of the containers logic ToDo
-	return false
+	return CheckInit()
 }
 
-func CheckInit() {
+//Checks if instance is initiated
+func CheckInit() bool {
+	fmt.Println("Inside CheckInit")
 	if !initiated {
-		InitPlugin()
+		fmt.Println("Not initiated")
+		return InitPlugin()
 	}
+	fmt.Println("Returning true for checkinit")
+	return true
 }
-func InitPlugin() {
+
+//Initiates the plugin
+func InitPlugin() bool {
+	fmt.Println("Inside initplugin")
 	var err error
 	cli, err = client.NewClientWithOpts(client.WithVersion("1.39"))
-
+	fmt.Println("Client version:" + cli.ClientVersion())
 	if err != nil {
 		fmt.Println(err)
+		fmt.Println("Returning false from initplugin")
+		return false
 	}
-
 	initiated = true
+	fmt.Println("Returning true for initplugin")
+	return true
 }
